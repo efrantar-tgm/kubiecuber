@@ -24,7 +24,7 @@ public class KubieCuberRemoteReceiver extends Thread {
 		start();
 	}
 	
-	private void processPacket(Packet packet) throws Exception {
+	private Packet processPacket(Packet packet) throws Exception {
 		switch(packet.getPacketType()) {
 		case PERFORM:
 			kubieCuberController.perform((String)packet.getPayload()[0]);
@@ -48,12 +48,12 @@ public class KubieCuberRemoteReceiver extends Thread {
 			kubieCuberController.test();
 			break;
 		default:
-			objectOutputStream.writeObject(new Packet(FAIL, null));
-			return;
+			return new Packet(FAIL, null);
 		}
 		
-		objectOutputStream.writeObject(new Packet(SUCCESS, null));
+		return new Packet(SUCCESS, null);
 	}
+	
 	@Override
 	public void run() {
 		try {
@@ -61,10 +61,11 @@ public class KubieCuberRemoteReceiver extends Thread {
 		} 
 		catch (Exception e) {}
 		
-		while(true)  {// TODO: create watchdog for save termination 
+		while(true)  {
+			System.out.println("Waiting for connection ...");
+			
 			try {
 				/* wait for connection with remote */
-				System.out.println("Waiting for connection ...");
 				socketFromRemote = serverSocket.accept();
 				System.out.println("Connected ...");
 				
@@ -72,17 +73,34 @@ public class KubieCuberRemoteReceiver extends Thread {
 				objectOutputStream = new ObjectOutputStream(socketFromRemote.getOutputStream());
 				objectInputStream = new ObjectInputStream(socketFromRemote.getInputStream());
 				
-				Packet packet;
-				while((packet = (Packet)objectInputStream.readObject()) != null) {
-					processPacket(packet);
+				Packet request;
+				while((request = (Packet)objectInputStream.readObject()) != null) {
+					Packet response = processPacket(request);
+					
+					/* answer the request with either a fail- or a success-response */
+					objectOutputStream.writeObject(response);
 					objectOutputStream.flush();
 				}
 			} 
 			catch (Exception e) {
-				e.printStackTrace();
 			}
-			try { sleep(1000); } catch (InterruptedException e) {}
+			
 			System.out.println("Disconnected ...");
+			try { sleep(1000); } catch (InterruptedException e) {} // we need to wait a bit before accepting a new connection
 		}
+	}
+	
+	public void shutdown() {
+		/* close the sockets; Exceptions will occur on client- and on server-side! */
+		try {
+			socketFromRemote.close();
+		}
+		catch(Exception e) {}
+		try {
+			serverSocket.close();
+		}
+		catch(Exception e) {}
+		
+		System.out.println("Remote shutdown ...");
 	}
 }

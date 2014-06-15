@@ -2,9 +2,8 @@ package kubiecuber.remote;
 
 import java.io.Serializable;
 
+@SuppressWarnings("serial")
 public class Packet implements Serializable {
-	private static final long serialVersionUID = 1L;
-	
 	public enum PacketType {
 		PERFORM,
 		T,
