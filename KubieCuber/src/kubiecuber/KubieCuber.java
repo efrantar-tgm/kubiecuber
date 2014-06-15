@@ -1,50 +1,44 @@
 package kubiecuber;
 
-import java.rmi.RemoteException;
-import java.rmi.registry.LocateRegistry;
-import java.rmi.registry.Registry;
-import java.rmi.server.UnicastRemoteObject;
+import kubiecuber.control.KubieCuberController;
+import kubiecuber.control.KubieCuberControllerImpl;
+import kubiecuber.hardware.FlipperMotor;
+import kubiecuber.hardware.PlatformMotor;
+import kubiecuber.remote.KubieCuberRemoteReceiver;
+import lejos.hardware.port.MotorPort;
 
 public class KubieCuber {
-	private final int REGISTRY_PORT = 1098;
-	private final String REMOTE_ADDRESS = "KubieCuberRemote";
+	private KubieCuberController kubieCuberController;
 	
-	private KubieCuberRemote kubieCuberRemote;
-	private Registry registry;
+	private PlatformMotor platform;
+	private FlipperMotor flipper;
 	
 	public KubieCuber() {
-		kubieCuberRemote = new KubieCuberRemoteImpl();
+		kubieCuberController = new KubieCuberControllerImpl(this);
+		
+		platform = new PlatformMotor(MotorPort.A);
+		flipper = new FlipperMotor(MotorPort.B);
+		
+		platform.setSpeed(platform.getSpeed() * 2);
+		flipper.setFlipSpeed((int)(flipper.getSpeed()  * 1.5));
 	}
 	
-	public void provideRemote() throws Exception  {
-		/* create the RMI-registry on the mindstorm */
-        System.setProperty("java.rmi.server.hostname", "10.0.1.1");
-        try {
-            registry = LocateRegistry.createRegistry(REGISTRY_PORT); 
-        } 
-        catch (RemoteException e) {  // registry already exists, so look it up
-        	registry = LocateRegistry.getRegistry(REGISTRY_PORT);
-        }
-        
-        KubieCuberRemote stub = (KubieCuberRemote)UnicastRemoteObject.exportObject(kubieCuberRemote, REGISTRY_PORT);
-        registry.rebind(REMOTE_ADDRESS, stub); // bind the remote in the registry
+	public void provideRemote() {
+		new KubieCuberRemoteReceiver(kubieCuberController);
 	}
 	
-	public void shutdown() throws Exception {
-		registry.unbind(REMOTE_ADDRESS); // unbind the remote
-		UnicastRemoteObject.unexportObject(registry, true); // unbind the registry itself to stop it
+	public void shutdown() {
+		/* TODO: not yet implemented */
 	}
 	
 	
 	public static void main(String[] args) {
 		KubieCuber kubieCuber = new KubieCuber();
 		
-		try {
-			kubieCuber.provideRemote();
-			System.out.println("Remote provided");
-		}
-		catch(Exception e) {  // the program ends if providing the remote fails
-			e.printStackTrace();
-		}
+		kubieCuber.provideRemote();
+		System.out.println("Remote provided");
 	}
+	
+	public PlatformMotor getPlatform() { return platform; }
+	public FlipperMotor getFlipper() { return flipper; }
 }
